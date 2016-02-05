@@ -1,0 +1,6 @@
+[package]
+name = "old_rusty_platforms"
+version = "0.1.0"
+authors = ["Aleksandr Kovalev <aleksandr@kovalev.engineer>"]
+
+[dependencies]
