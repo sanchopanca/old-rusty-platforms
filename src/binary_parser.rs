@@ -8,7 +8,7 @@ pub fn load_binary_to_memory(file_path: &str, memory_slice: &mut [u8]) -> Result
     let binary_size: u64 = metadata.len();
     let memory_size = memory_slice.len() as u64;
     if memory_size < binary_size {
-        let file_to_big = Error::new(ErrorKind::Other, "Binary file is to big");
+        let file_to_big = Error::new(ErrorKind::Other, "Binary file is too big");
         return Err(file_to_big);
     }
     let mut f = try!(File::open(file_path));
