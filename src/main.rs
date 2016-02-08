@@ -1,8 +1,8 @@
 mod binary_parser;
+mod chip8;
 
 fn main() {
-    let mut m: [u8; 32] = [0; 32];
-    let _ = binary_parser::load_binary_to_memory("/tmp/test", &mut m);
-    // let v = binary_parser::parse("/tmp/test");
-    println!("Hello, world! {:?}", m);
+    let mut chip: chip8::CHIP8 = chip8::CHIP8::new();
+    chip.load_binary("/tmp/test");
+    chip.print_first_16_bytes_of_ram();
 }
