@@ -134,27 +134,64 @@ impl CHIP8 {
     }
 
     fn execute_7_opcode(&mut self) {
-        self.not_implemented();
+        let second_nymble = self.ram[self.i] & 0xF;
+        let second_byte = self.ram[self.i+1];
+        self.v[second_nymble as usize] = second_byte;
         self.i += 2;
     }
     fn execute_8_opcode(&mut self) {
-        self.not_implemented();
+        let last_nymble = self.ram[self.i+1] & 0xF;
+        let x = self.ram[self.i] & 0xF; // second nymble
+        let y = self.ram[self.i+1] >> 4; // third nymble
+        match last_nymble {
+            0x0 => self.v[x as usize] = self.v[y as usize],
+            0x1 => self.v[x as usize] |= self.v[y as usize], // TODO check bit or logic
+            0x2 => self.v[x as usize] &= self.v[y as usize], // TODO check bit or logic
+            0x3 => self.v[x as usize] ^= self.v[y as usize], // TODO check bit or logic
+            0x4 => {
+                self.not_implemented();
+            },
+            0x5 => {
+                self.not_implemented();
+            },
+            0x6 => {
+                self.v[0xF] = self.v[x as usize] & 0b00000001;
+                self.v[x as usize] >>= 1;
+            },
+            0x7 => {
+                self.not_implemented();
+            },
+            0xE => {
+                self.v[0xF] = (self.v[x as usize] & 0b10000000) >> 7;
+                self.v[x as usize] <<= 1;
+            },
+            _ => {
+                self.not_implemented();
+            }
+        }
         self.i += 2;
     }
 
     fn execute_9_opcode(&mut self) {
-        self.not_implemented();
-        self.i += 2;
+        let x = self.ram[self.i] & 0xF; // second nymble
+        let y = self.ram[self.i+1] >> 4; // third nymble
+        if x != y {
+            self.i += 4;
+        } else {
+            self.i += 2;
+        }
     }
 
     fn execute_a_opcode(&mut self) {
-        self.not_implemented();
-        self.i += 2;
+        let second_nymble = self.ram[self.i] & 0xF;
+        let address: usize = (second_nymble as usize) << 8 + (self.ram[self.i+1] as usize);
+        self.i = address;
     }
 
     fn execute_b_opcode(&mut self) {
-        self.not_implemented();
-        self.i += 2;
+        let second_nymble = self.ram[self.i] & 0xF;
+        let address: usize = (second_nymble as usize) << 8 + (self.ram[self.i+1] as usize);
+        self.i = address + self.v[0] as usize; // TODO check that the sum less than max address
     }
 
     fn execute_c_opcode(&mut self) {
