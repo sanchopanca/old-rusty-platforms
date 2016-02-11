@@ -210,7 +210,34 @@ impl CHIP8 {
     }
 
     fn execute_f_opcode(&mut self) {
-        self.not_implemented();
+        let second_byte = self.ram[self.i+1];
+        let second_nymble = self.ram[self.i] & 0xF;
+        match second_byte {
+            0x07 => self.v[second_nymble as usize] = self.delay_timer,
+            0x0A => {
+                self.not_implemented();
+            },
+            0x15 => self.delay_timer = self.v[second_nymble as usize],
+            0x18 => self.sound_timer = self.v[second_nymble as usize],
+            0x1E =>  {
+                self.not_implemented();
+            },
+            0x29 => {
+                self.not_implemented();
+            },
+            0x33 => {
+                self.not_implemented();
+            },
+            0x55 => {
+                self.not_implemented();
+            },
+            0x65 => {
+                self.not_implemented();
+            },
+            _ => {
+                self.not_implemented();
+            }
+        }
         self.i += 2;
     }
 
