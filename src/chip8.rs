@@ -1,3 +1,5 @@
+use rand;
+
 use binary_parser;
 
 const MEMORY_SIZE: usize = 0xFFF; // 4KB
@@ -61,6 +63,12 @@ impl CHIP8 {
         println!("Not implemented {:x}{:x}", self.ram[self.i], self.ram[self.i+1]);
     }
 
+    fn warning(&self, message: &str) {
+        print!("Illegal instruction {:x}{:x} at {:x} skipped",
+               self.ram[self.i], self.ram[self.i+1], self.i);
+        println!("{}", message);
+    }
+
     fn execute_0_opcode(&mut self) {
         let second_nymble = self.ram[self.i] & 0xF;
         if second_nymble != 0x0 {
@@ -71,11 +79,11 @@ impl CHIP8 {
         let second_byte = self.ram[self.i+1];
         match second_byte {
             0xE0 => {
-                println!("Clearing the screen");
+                self.not_implemented();
                 self.i += 2;
             },
             0xEE => {
-                println!("Returning from a subroutine");
+                self.not_implemented();
                 self.i += 2;
             },
             _ => {
@@ -89,7 +97,7 @@ impl CHIP8 {
         let second_byte = self.ram[self.i+1];
         let address: u16 = second_byte as u16 + (second_nymble as u16) << 12;
         if address as usize >= MEMORY_SIZE {
-            println!("Illegal jump");
+            self.warning("Jump ouside of the memory");
             self.i += 2;
             return;
         }
@@ -122,8 +130,19 @@ impl CHIP8 {
     }
 
     fn execute_5_opcode(&mut self) {
-        self.not_implemented();
-        self.i += 2;
+        let last_nymble = self.ram[self.i+1] & 0xF;
+        if last_nymble != 0 {
+            self.warning("Illegal opcode");
+            self.i += 2;
+            return;
+        }
+        let x = self.ram[self.i] & 0xF; // second nymble
+        let y = self.ram[self.i+1] >> 4; // third nymble
+        if x == y {
+            self.i += 4;
+        } else {
+            self.i += 2;
+        }
     }
 
     fn execute_6_opcode(&mut self) {
@@ -141,29 +160,43 @@ impl CHIP8 {
     }
     fn execute_8_opcode(&mut self) {
         let last_nymble = self.ram[self.i+1] & 0xF;
-        let x = self.ram[self.i] & 0xF; // second nymble
-        let y = self.ram[self.i+1] >> 4; // third nymble
+        let x = (self.ram[self.i] & 0xF) as usize; // second nymble
+        let y = (self.ram[self.i+1] >> 4) as usize; // third nymble
         match last_nymble {
-            0x0 => self.v[x as usize] = self.v[y as usize],
-            0x1 => self.v[x as usize] |= self.v[y as usize], // TODO check bit or logic
-            0x2 => self.v[x as usize] &= self.v[y as usize], // TODO check bit or logic
-            0x3 => self.v[x as usize] ^= self.v[y as usize], // TODO check bit or logic
+            0x0 => self.v[x] = self.v[y],
+            0x1 => self.v[x] |= self.v[y], // TODO check bit or logic
+            0x2 => self.v[x] &= self.v[y], // TODO check bit or logic
+            0x3 => self.v[x] ^= self.v[y], // TODO check bit or logic
             0x4 => {
-                self.not_implemented();
+                let sum: u16 = self.v[x] as u16 + self.v[y] as u16;
+                if sum & 0xFF00 != 0 {
+                    self.v[0xF] = 1;
+                }
+                self.v[x] = (sum & 0x00FF) as u8;
             },
             0x5 => {
-                self.not_implemented();
+                if self.v[x] < self.v[y] {
+                    self.v[0xF] = 0;
+                } else {
+                    self.v[0xF] = 1;
+                }
+                self.v[x] -= self.v[y];
             },
             0x6 => {
-                self.v[0xF] = self.v[x as usize] & 0b00000001;
-                self.v[x as usize] >>= 1;
+                self.v[0xF] = self.v[x] & 0b0000_0001;
+                self.v[x] >>= 1;
             },
             0x7 => {
-                self.not_implemented();
+                if self.v[y] < self.v[x] {
+                    self.v[0xF] = 0;
+                } else {
+                    self.v[0xF] = 1;
+                }
+                self.v[x] = self.v[y] - self.v[x];
             },
             0xE => {
-                self.v[0xF] = (self.v[x as usize] & 0b10000000) >> 7;
-                self.v[x as usize] <<= 1;
+                self.v[0xF] = (self.v[x] & 0b1000_0000) >> 7;
+                self.v[x] <<= 1;
             },
             _ => {
                 self.not_implemented();
@@ -195,7 +228,10 @@ impl CHIP8 {
     }
 
     fn execute_c_opcode(&mut self) {
-        self.not_implemented();
+        let second_nymble = self.ram[self.i] & 0xF;
+        let second_byte = self.ram[self.i+1];
+        let r: u8 = rand::random();
+        self.v[second_nymble as usize] = r & second_byte;
         self.i += 2;
     }
 
