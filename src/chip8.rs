@@ -7,6 +7,8 @@ const MEMORY_SIZE: usize = 0xFFF; // 4KB
 pub struct CHIP8 {
     v: [u8; 16],  // V0 - VF registers
     i: u16,  // address register
+    stack: [usize; 16], // stack
+    sp: usize, // stack pointer
     delay_timer: u8,
     sound_timer: u8,
     ram: [u8; MEMORY_SIZE],  // 4 KB of ram
@@ -18,6 +20,8 @@ impl CHIP8 {
         CHIP8 {
             v: [0; 16],
             i: 0,
+            stack: [0; 16],
+            sp: 0,
             delay_timer: 0,
             sound_timer: 0,
             ram: [0; 0xFFF],
@@ -86,9 +90,10 @@ impl CHIP8 {
                 self.ca += 2;
             },
             0xEE => {
-                // subroutine
-                self.not_implemented();
-                self.ca += 2;
+                self.sp -= 1;
+                // TODO check stack limits
+                // TODO check memory limits
+                self.ca = self.stack[self.sp] + 2;
             },
             _ => {
                 self.warning("Illegal opcode");
@@ -107,14 +112,18 @@ impl CHIP8 {
             self.warning("Endless loop");
             self.ca += 2;
         } else {
-            self.ca = address as usize;
+            self.ca = address;
         }
     }
 
     fn execute_2_opcode(&mut self) {
-        // subroutine
-        self.not_implemented();
-        self.ca += 2;
+        let second_nymble = self.ram[self.ca] & 0xF;
+        let second_byte = self.ram[self.ca+1];
+        let address: usize = second_byte as usize + (second_nymble as usize) << 12;
+        self.stack[self.sp] = self.ca;
+        // TODO check stack limits
+        self.sp += 1;
+        self.ca = address;
     }
 
     fn execute_3_opcode(&mut self) {
