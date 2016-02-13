@@ -37,7 +37,7 @@ impl CHIP8 {
 
         match first_nymble {
             // each of the following functions
-            // MUST move `i` pointer
+            // MUST move `ca` pointer
             0x0 => self.execute_0_opcode(),
             0x1 => self.execute_1_opcode(),
             0x2 => self.execute_2_opcode(),
@@ -55,7 +55,7 @@ impl CHIP8 {
             0xE => self.execute_e_opcode(),
             0xF => self.execute_f_opcode(),
             _ => {
-                self.not_implemented();
+                self.warning("Illegal opcode");
                 self.ca += 2;
             },
         }
@@ -91,7 +91,7 @@ impl CHIP8 {
                 self.ca += 2;
             },
             _ => {
-                self.not_implemented();
+                self.warning("Illegal opcode");
                 self.ca += 2;
             }
         }
@@ -207,7 +207,7 @@ impl CHIP8 {
                 self.v[x] <<= 1;
             },
             _ => {
-                self.not_implemented();
+                self.warning("Illegal opcode");
             }
         }
         self.ca += 2;
@@ -244,12 +244,13 @@ impl CHIP8 {
     }
 
     fn execute_d_opcode(&mut self) {
-        //video
+        // video
         self.not_implemented();
         self.ca += 2;
     }
 
     fn execute_e_opcode(&mut self) {
+        // keyborad
         self.not_implemented();
         self.ca += 2;
     }
@@ -272,19 +273,26 @@ impl CHIP8 {
                 }
             },
             0x29 => {
+                // font
                 self.not_implemented();
             },
             0x33 => {
                 self.not_implemented();
             },
             0x55 => {
-                self.not_implemented();
+                // TODO check borders
+                for x in 0..second_nymble {
+                    self.ram[self.i as usize + x as usize] = self.v[x as usize];
+                }
             },
             0x65 => {
-                self.not_implemented();
+                // TODO check borders
+                for x in 0..second_nymble {
+                    self.v[x as usize] = self.ram[self.i as usize + x as usize];
+                }
             },
             _ => {
-                self.not_implemented();
+                self.warning("Illegal opcode");
             }
         }
         self.ca += 2;
