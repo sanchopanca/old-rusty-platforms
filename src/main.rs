@@ -1,5 +1,6 @@
 mod binary_parser;
 mod chip8;
+mod chip8_display;
 extern crate rand;
 extern crate sdl2;
 
@@ -8,7 +9,8 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
 fn main() {
-    let mut chip: chip8::CHIP8 = chip8::CHIP8::new();
+    let mut dummy_display = chip8_display::DummyCHIP8Display::new();
+    let mut chip: chip8::CHIP8 = chip8::CHIP8::new(&mut dummy_display);
     chip.load_binary("/tmp/test");
     chip.print_first_16_bytes_of_ram();
     let x: u8 = rand::random();

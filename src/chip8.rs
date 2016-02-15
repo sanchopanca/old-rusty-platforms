@@ -1,10 +1,11 @@
 use rand;
 
 use binary_parser;
+use chip8_display::CHIP8Display;
 
 const MEMORY_SIZE: usize = 0xFFF; // 4KB
 
-pub struct CHIP8 {
+pub struct CHIP8<'a> {
     v: [u8; 16],  // V0 - VF registers
     i: u16,  // address register
     stack: [usize; 16], // stack
@@ -13,10 +14,12 @@ pub struct CHIP8 {
     sound_timer: u8,
     ram: [u8; MEMORY_SIZE],  // 4 KB of ram
     ca: usize, // current address
+    video_memory: [[u8; 4]; 8],
+    display: &'a mut CHIP8Display,
 }
 
-impl CHIP8 {
-    pub fn new() -> CHIP8 {
+impl<'a> CHIP8<'a> {
+    pub fn new<T: CHIP8Display>(display: &'a mut T) -> CHIP8 {
         CHIP8 {
             v: [0; 16],
             i: 0,
@@ -26,10 +29,14 @@ impl CHIP8 {
             sound_timer: 0,
             ram: [0; 0xFFF],
             ca: 0x200,
+            video_memory: [[0; 4]; 8],
+            display: display,
         }
     }
     pub fn load_binary(&mut self, file_path: &str) {
         binary_parser::load_binary_to_memory(file_path, &mut self.ram[0x200..]);
+        self.display.clear();
+        self.display.update(&self.video_memory)
     }
 
     pub fn print_first_16_bytes_of_ram(&self) {
