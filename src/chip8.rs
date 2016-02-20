@@ -111,7 +111,7 @@ impl<'a> CHIP8<'a> {
     fn execute_1_opcode(&mut self) {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca+1];
-        let address: usize = second_byte as usize + (second_nymble as usize) << 12;
+        let address: usize = second_byte as usize + (second_nymble as usize) << 8;
         if address >= MEMORY_SIZE {
             self.warning("Jump ouside of the memory");
             self.ca += 2;
@@ -126,7 +126,7 @@ impl<'a> CHIP8<'a> {
     fn execute_2_opcode(&mut self) {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca+1];
-        let address: usize = second_byte as usize + (second_nymble as usize) << 12;
+        let address: usize = second_byte as usize + (second_nymble as usize) << 8;
         self.stack[self.sp] = self.ca;
         // TODO check stack limits
         self.sp += 1;
