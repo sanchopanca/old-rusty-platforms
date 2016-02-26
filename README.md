@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/sanchopanca/old-rusty-platforms.png?label=ready&title=Ready)](https://waffle.io/sanchopanca/old-rusty-platforms)
 # old-rusty-platforms
 My attempt to make an emulator
 
