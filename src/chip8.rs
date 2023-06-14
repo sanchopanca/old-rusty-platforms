@@ -32,10 +32,17 @@ impl<'a> CHIP8<'a> {
             display,
         }
     }
-    pub fn load_binary(&mut self, file_path: &str) {
+    pub fn load_from_file(&mut self, file_path: &str) {
         binary_parser::load_binary_to_memory(file_path, &mut self.ram[0x200..]).unwrap();
         self.display.clear();
         self.display.update(&self.video_memory)
+    }
+
+    #[allow(dead_code)]
+    pub fn load_from_memory(&mut self, memory_slice: &[u8]) {
+        for (i, byte) in memory_slice.iter().enumerate() {
+            self.ram[i + 0x200] = *byte;
+        }
     }
 
     pub fn print_first_16_bytes_of_ram(&self) {
@@ -113,9 +120,9 @@ impl<'a> CHIP8<'a> {
         }
     }
     fn execute_1_opcode(&mut self) -> usize {
-        let second_nymble = self.ram[self.ca] & 0xF;
-        let second_byte = self.ram[self.ca + 1];
-        let address: usize = (second_byte as usize + (second_nymble as usize)) << 8;
+        let second_nymble = (self.ram[self.ca] & 0xF) as usize;
+        let second_byte = self.ram[self.ca + 1] as usize;
+        let address = second_byte + (second_nymble << 8);
         if address >= MEMORY_SIZE {
             self.warning("Jump ouside of the memory");
             self.ca + 2
@@ -128,9 +135,9 @@ impl<'a> CHIP8<'a> {
     }
 
     fn execute_2_opcode(&mut self) -> usize {
-        let second_nymble = self.ram[self.ca] & 0xF;
-        let second_byte = self.ram[self.ca + 1];
-        let address: usize = (second_byte as usize + (second_nymble as usize)) << 8;
+        let second_nymble = (self.ram[self.ca] & 0xF) as usize;
+        let second_byte = self.ram[self.ca + 1] as usize;
+        let address = second_byte + (second_nymble << 8);
         self.stack[self.sp] = self.ca;
         // TODO check stack limits
         self.sp += 1;
@@ -316,5 +323,25 @@ impl<'a> CHIP8<'a> {
             }
         }
         self.ca + 2
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chip8_display::DummyCHIP8Display;
+
+    #[test]
+    fn test_jump() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 1204  -- jump to the address Ox204, which is two instructions down
+        // 0000  -- nothing here
+        // CC00  -- we should jump here
+        chip8.load_from_memory(&[0x12, 0x04, 0x00, 0x00, 0xCC, 0x00]);
+        chip8.execute_opcode();
+        println!("{:x}", chip8.ca);
+        assert_eq!(chip8.ram[chip8.ca], 0xCC);
     }
 }

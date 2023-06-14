@@ -13,7 +13,7 @@ mod chip8_display;
 fn main() {
     let mut dummy_display = chip8_display::DummyCHIP8Display::new();
     let mut chip: chip8::CHIP8 = chip8::CHIP8::new(&mut dummy_display);
-    chip.load_binary("Cargo.toml");
+    chip.load_from_file("Cargo.toml");
     chip.print_first_16_bytes_of_ram();
     let x: u8 = rand::random();
     println!("{}", x);
