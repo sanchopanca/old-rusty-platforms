@@ -1,12 +1,14 @@
+use pixels::wgpu::Color;
+use pixels::{Pixels, SurfaceTexture};
+use winit::dpi::LogicalSize;
+use winit::event::{Event, VirtualKeyCode};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::WindowBuilder;
+use winit_input_helper::WinitInputHelper;
+
 mod binary_parser;
 mod chip8;
 mod chip8_display;
-extern crate rand;
-extern crate sdl2;
-
-use sdl2::pixels::Color;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 
 fn main() {
     let mut dummy_display = chip8_display::DummyCHIP8Display::new();
@@ -16,32 +18,41 @@ fn main() {
     let x: u8 = rand::random();
     println!("{}", x);
 
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+    let event_loop = EventLoop::new();
+    let mut input = WinitInputHelper::new();
 
-    let window = video_subsystem.window("rust-sdl2 demo: Video", 800, 600)
-        .position_centered()
-        .opengl()
-        .build()
-        .unwrap();
+    let window = {
+        let size = LogicalSize::new(400.0, 300.0);
+        let scaled_size = LogicalSize::new(400.0 * 3.0, 300.0 * 3.0);
+        WindowBuilder::new()
+            .with_title("Rusty Platforms - CHIP-8")
+            .with_inner_size(scaled_size)
+            .with_min_inner_size(size)
+            .build(&event_loop)
+            .unwrap()
+    };
 
-    let mut renderer = window.renderer().build().unwrap();
+    let mut pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(400, 300, surface_texture).unwrap()
+    };
 
-    renderer.set_draw_color(Color::RGB(0, 0, 255));
-    renderer.clear();
-    renderer.present();
+    pixels.clear_color(Color::BLUE);
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
-
-    'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
-                _ => {}
+    event_loop.run(move |event, _, control_flow| {
+        if let Event::RedrawRequested(_) = event {
+            if pixels.render().is_err() {
+                *control_flow = ControlFlow::Exit;
+                return;
             }
         }
-        // The rest of the game loop goes here...
-    }
+
+        if input.update(&event) {
+            // Close events
+            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
+                *control_flow = ControlFlow::Exit;
+            }
+        }
+    });
 }
