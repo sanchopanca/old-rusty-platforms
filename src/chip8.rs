@@ -46,9 +46,7 @@ impl<'a> CHIP8<'a> {
     fn execute_opcode(&mut self) {
         let first_nymble = self.ram[self.ca] >> 4;
 
-        match first_nymble {
-            // each of the following functions
-            // MUST move `ca` pointer
+        self.ca = match first_nymble {
             0x0 => self.execute_0_opcode(),
             0x1 => self.execute_1_opcode(),
             0x2 => self.execute_2_opcode(),
@@ -66,8 +64,7 @@ impl<'a> CHIP8<'a> {
             0xE => self.execute_e_opcode(),
             0xF => self.execute_f_opcode(),
             _ => {
-                self.warning("Illegal opcode");
-                self.ca += 2;
+                panic!("Unreachable");
             }
         }
     }
@@ -90,107 +87,105 @@ impl<'a> CHIP8<'a> {
         println!("{}", message);
     }
 
-    fn execute_0_opcode(&mut self) {
+    fn execute_0_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         if second_nymble != 0x0 {
             self.not_implemented();
-            self.ca += 2;
-            return;
+            return self.ca + 2;
         }
         let second_byte = self.ram[self.ca + 1];
         match second_byte {
             0xE0 => {
                 // video
                 self.not_implemented();
-                self.ca += 2;
+                self.ca + 2
             }
             0xEE => {
                 self.sp -= 1;
                 // TODO check stack limits
                 // TODO check memory limits
-                self.ca = self.stack[self.sp] + 2;
+                self.stack[self.sp] + 2
             }
             _ => {
                 self.warning("Illegal opcode");
-                self.ca += 2;
+                self.ca + 2
             }
         }
     }
-    fn execute_1_opcode(&mut self) {
+    fn execute_1_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         let address: usize = (second_byte as usize + (second_nymble as usize)) << 8;
         if address >= MEMORY_SIZE {
             self.warning("Jump ouside of the memory");
-            self.ca += 2;
+            self.ca + 2
         } else if address == self.ca {
             self.warning("Endless loop");
-            self.ca += 2;
+            self.ca + 2
         } else {
-            self.ca = address;
+            address
         }
     }
 
-    fn execute_2_opcode(&mut self) {
+    fn execute_2_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         let address: usize = (second_byte as usize + (second_nymble as usize)) << 8;
         self.stack[self.sp] = self.ca;
         // TODO check stack limits
         self.sp += 1;
-        self.ca = address;
+        address
     }
 
-    fn execute_3_opcode(&mut self) {
+    fn execute_3_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         if self.v[second_nymble as usize] == second_byte {
-            self.ca += 4
+            self.ca + 4
         } else {
-            self.ca += 2;
+            self.ca + 2
         }
     }
 
-    fn execute_4_opcode(&mut self) {
+    fn execute_4_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         if self.v[second_nymble as usize] != second_byte {
-            self.ca += 4
+            self.ca + 4
         } else {
-            self.ca += 2;
+            self.ca + 2
         }
     }
 
-    fn execute_5_opcode(&mut self) {
+    fn execute_5_opcode(&mut self) -> usize {
         let last_nymble = self.ram[self.ca + 1] & 0xF;
         if last_nymble != 0 {
             self.warning("Illegal opcode");
-            self.ca += 2;
-            return;
+            return self.ca + 2;
         }
         let x = self.ram[self.ca] & 0xF; // second nymble
         let y = self.ram[self.ca + 1] >> 4; // third nymble
         if x == y {
-            self.ca += 4;
+            self.ca + 4
         } else {
-            self.ca += 2;
+            self.ca + 2
         }
     }
 
-    fn execute_6_opcode(&mut self) {
+    fn execute_6_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         self.v[second_nymble as usize] = second_byte;
-        self.ca += 2;
+        self.ca + 2
     }
 
-    fn execute_7_opcode(&mut self) {
+    fn execute_7_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         self.v[second_nymble as usize] = second_byte;
-        self.ca += 2;
+        self.ca + 2
     }
-    fn execute_8_opcode(&mut self) {
+    fn execute_8_opcode(&mut self) -> usize {
         let last_nymble = self.ram[self.ca + 1] & 0xF;
         let x = (self.ram[self.ca] & 0xF) as usize; // second nymble
         let y = (self.ram[self.ca + 1] >> 4) as usize; // third nymble
@@ -234,52 +229,53 @@ impl<'a> CHIP8<'a> {
                 self.warning("Illegal opcode");
             }
         }
-        self.ca += 2;
+        self.ca + 2
     }
 
-    fn execute_9_opcode(&mut self) {
+    fn execute_9_opcode(&mut self) -> usize {
         let x = self.ram[self.ca] & 0xF; // second nymble
         let y = self.ram[self.ca + 1] >> 4; // third nymble
         if x != y {
-            self.ca += 4;
+            self.ca + 4
         } else {
-            self.ca += 2;
+            self.ca + 2
         }
     }
 
-    fn execute_a_opcode(&mut self) {
+    fn execute_a_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let address: u16 = (second_nymble as u16) << (8 + (self.ram[self.ca + 1] as u16));
         self.i = address;
+        self.ca + 2
     }
 
-    fn execute_b_opcode(&mut self) {
+    fn execute_b_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let address: usize = (second_nymble as usize) << (8 + (self.ram[self.ca + 1] as usize));
-        self.ca = address + self.v[0] as usize; // TODO check that the sum less than max address
+        address + self.v[0] as usize // TODO check that the sum less than max address
     }
 
-    fn execute_c_opcode(&mut self) {
+    fn execute_c_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
         let r: u8 = rand::random();
         self.v[second_nymble as usize] = r & second_byte;
-        self.ca += 2;
+        self.ca + 2
     }
 
-    fn execute_d_opcode(&mut self) {
+    fn execute_d_opcode(&mut self) -> usize {
         // video
         self.not_implemented();
-        self.ca += 2;
+        self.ca + 2
     }
 
-    fn execute_e_opcode(&mut self) {
+    fn execute_e_opcode(&mut self) -> usize {
         // keyborad
         self.not_implemented();
-        self.ca += 2;
+        self.ca + 2
     }
 
-    fn execute_f_opcode(&mut self) {
+    fn execute_f_opcode(&mut self) -> usize {
         let second_byte = self.ram[self.ca + 1];
         let second_nymble = self.ram[self.ca] & 0xF;
         match second_byte {
@@ -319,6 +315,6 @@ impl<'a> CHIP8<'a> {
                 self.warning("Illegal opcode");
             }
         }
-        self.ca += 2;
+        self.ca + 2
     }
 }
