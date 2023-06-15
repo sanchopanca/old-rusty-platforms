@@ -119,6 +119,8 @@ impl<'a> CHIP8<'a> {
             }
         }
     }
+
+    // uncoditional jump
     fn execute_1_opcode(&mut self) -> usize {
         let second_nymble = (self.ram[self.ca] & 0xF) as usize;
         let second_byte = self.ram[self.ca + 1] as usize;
@@ -144,6 +146,7 @@ impl<'a> CHIP8<'a> {
         address
     }
 
+    // skip if equal
     fn execute_3_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
@@ -154,6 +157,7 @@ impl<'a> CHIP8<'a> {
         }
     }
 
+    // skip if not equal
     fn execute_4_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
@@ -164,6 +168,7 @@ impl<'a> CHIP8<'a> {
         }
     }
 
+    // skip if two registers are equal
     fn execute_5_opcode(&mut self) -> usize {
         let last_nymble = self.ram[self.ca + 1] & 0xF;
         if last_nymble != 0 {
@@ -172,7 +177,7 @@ impl<'a> CHIP8<'a> {
         }
         let x = self.ram[self.ca] & 0xF; // second nymble
         let y = self.ram[self.ca + 1] >> 4; // third nymble
-        if x == y {
+        if self.v[x as usize] == self.v[y as usize] {
             self.ca + 4
         } else {
             self.ca + 2
@@ -343,5 +348,99 @@ mod tests {
         chip8.execute_opcode();
         println!("{:x}", chip8.ca);
         assert_eq!(chip8.ram[chip8.ca], 0xCC);
+    }
+
+    #[test]
+    fn test_store() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6001  -- store the value 1 in register 0
+        // 6102  -- store the value 2 in register 1
+        // 6203  -- store the value 3 in register 2
+        // 6304  -- store the value 4 in register 3
+        // 6405  -- store the value 5 in register 4
+        // 6506  -- store the value 6 in register 5
+        // 6607  -- store the value 7 in register 6
+        // 6708  -- store the value 8 in register 7
+        // 6809  -- store the value 9 in register 8
+        // 690A  -- store the value 10 in register 9
+        // 6A0B  -- store the value 11 in register A
+        // 6B0C  -- store the value 12 in register B
+        // 6C0D  -- store the value 13 in register C
+        // 6D0E  -- store the value 14 in register D
+        // 6E0F  -- store the value 15 in register E
+        // 6F10  -- store the value 16 in register F
+
+        chip8.load_from_memory(&[
+            0x60, 0x01, 0x61, 0x02, 0x62, 0x03, 0x63, 0x04, 0x64, 0x05, 0x65, 0x06, 0x66, 0x07,
+            0x67, 0x08, 0x68, 0x09, 0x69, 0x0A, 0x6A, 0x0B, 0x6B, 0x0C, 0x6C, 0x0D, 0x6D, 0x0E,
+            0x6E, 0x0F, 0x6F, 0x10,
+        ]);
+
+        for i in 0..15 {
+            chip8.execute_opcode();
+            assert_eq!(chip8.v[i], (i + 1) as u8);
+        }
+    }
+
+    #[test]
+    fn test_skip3() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6001  -- store the value 1 in register 0
+        // 3001  -- skip the next instruction if the value in register 0 is equal to 1
+        // 0000  -- nothing here
+        // 3000  -- we should jump here and do another check
+        // 0300  -- we should end up here
+        chip8.load_from_memory(&[0x60, 0x01, 0x30, 0x01, 0x00, 0x00, 0x30, 0x00, 0x03, 0x00]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // successful skip
+        assert_eq!(chip8.ca, 0x206);
+
+        chip8.execute_opcode(); // unsuccessful skip
+        assert_eq!(chip8.ca, 0x208);
+        assert_eq!(chip8.ram[chip8.ca], 0x03);
+    }
+
+    #[test]
+    fn test_skip4() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6D0A  -- store the value A in register D
+        // 4D0A  -- skip the next instruction if the value in register D is not equal to A (this condition doesn't hold, so no skip)
+        // 400A  -- skip the next instruction if the value in register D is not equal to 0
+        // 0000  -- we should skip this instruction
+        // 0400  -- we should end up here
+        chip8.load_from_memory(&[0x6D, 0x0A, 0x4D, 0x0A, 0x40, 0x0A, 0x00, 0x00, 0x04, 0x00]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // unsuccessful skip
+        assert_eq!(chip8.ca, 0x204);
+
+        chip8.execute_opcode(); // successful skip
+        assert_eq!(chip8.ca, 0x208);
+        assert_eq!(chip8.ram[chip8.ca], 0x04);
+    }
+
+    #[test]
+    fn test_skip5() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 5AB0  -- skip the following instruction if the value in registers A and B are equal (they are)
+        // 0000  -- nothing here
+        // 6BFF  -- store FF in register A
+        // 5AB0  -- skip the following instruction if the value in registers A and B are equal (they are not)
+        // 0500  -- we should end up here
+        chip8.load_from_memory(&[0x5A, 0xB0, 0x00, 0x00, 0x6B, 0xFF, 0x5A, 0xB0, 0x05, 0x00]);
+        chip8.execute_opcode(); // skip
+        assert_eq!(chip8.ca, 0x204);
+
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // unsuccessful skip
+        assert_eq!(chip8.ca, 0x208);
+        assert_eq!(chip8.ram[chip8.ca], 0x05);
     }
 }
