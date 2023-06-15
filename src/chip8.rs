@@ -206,9 +206,9 @@ impl<'a> CHIP8<'a> {
         let y = (self.ram[self.ca + 1] >> 4) as usize; // third nymble
         match last_nymble {
             0x0 => self.v[x] = self.v[y],
-            0x1 => self.v[x] |= self.v[y], // TODO check bit or logic
-            0x2 => self.v[x] &= self.v[y], // TODO check bit or logic
-            0x3 => self.v[x] ^= self.v[y], // TODO check bit or logic
+            0x1 => self.v[x] |= self.v[y],
+            0x2 => self.v[x] &= self.v[y],
+            0x3 => self.v[x] ^= self.v[y],
             0x4 => {
                 let sum: u16 = self.v[x] as u16 + self.v[y] as u16;
                 if sum & 0xFF00 != 0 {
@@ -466,5 +466,75 @@ mod tests {
 
         chip8.execute_opcode(); // add 0x10
         assert_eq!(chip8.v[0], 0x01);
+    }
+
+    #[test]
+    fn test_copy_register() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6001  -- store the value 1 in register 0
+        // 8100  -- copy v0 to v1
+        chip8.load_from_memory(&[0x60, 0x01, 0x81, 0x00]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // copy
+        assert_eq!(chip8.v[1], 0x01);
+    }
+
+    #[test]
+    fn test_or() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 605F  -- store 0b0101_1111 in v0
+        // 6FAA  -- store 0b1010_1010 in vF
+        // 80F1  -- v0 |= vF
+        chip8.load_from_memory(&[0x60, 0x5F, 0x6F, 0xAA, 0x80, 0xF1]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.v[0x0], 0b0101_1111);
+        assert_eq!(chip8.v[0xF], 0b1010_1010);
+
+        chip8.execute_opcode(); // or
+        assert_eq!(chip8.v[0x0], 0b1111_1111); // changed
+        assert_eq!(chip8.v[0xF], 0b1010_1010); // unchanged
+    }
+
+    #[test]
+    fn test_and() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6055  -- store 0b0101_0101 in v0
+        // 6FAA  -- store 0b1010_1010 in vF
+        // 80F2  -- v0 &= vF
+        chip8.load_from_memory(&[0x60, 0x55, 0x6F, 0xAA, 0x80, 0xF2]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.v[0x0], 0b0101_0101);
+        assert_eq!(chip8.v[0xF], 0b1010_1010);
+
+        chip8.execute_opcode(); // or
+        assert_eq!(chip8.v[0x0], 0b0000_0000); // changed
+        assert_eq!(chip8.v[0xF], 0b1010_1010); // unchanged
+    }
+
+    #[test]
+    fn test_xor() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 605D  -- store 0b0101_1101 in v0
+        // 6FAA  -- store 0b1010_1010 in vF
+        // 80F3  -- v0 ^= vF
+        chip8.load_from_memory(&[0x60, 0x5D, 0x6F, 0xAA, 0x80, 0xF3]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.v[0x0], 0b0101_1101);
+        assert_eq!(chip8.v[0xF], 0b1010_1010);
+
+        chip8.execute_opcode(); // or
+        assert_eq!(chip8.v[0x0], 0b1111_0111); // changed
+        assert_eq!(chip8.v[0xF], 0b1010_1010); // unchanged
     }
 }
