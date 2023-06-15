@@ -224,7 +224,7 @@ impl<'a> CHIP8<'a> {
                 } else {
                     self.v[0xF] = 1;
                 }
-                self.v[x] -= self.v[y];
+                self.v[x] = self.v[x].wrapping_sub(self.v[y]);
             }
             0x6 => {
                 self.v[0xF] = self.v[x] & 0b0000_0001;
@@ -569,5 +569,35 @@ mod tests {
         assert_eq!(chip8.v[0xC], 0xF1); // unchanged
         assert_eq!(chip8.v[0xE], 0x01); // overflow
         assert_eq!(chip8.v[0xF], 0x01); // carry is 1
+    }
+
+    #[test]
+    fn test_sub() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 650A  -- store the value A in v5
+        // 6609  -- store the value 9 in v6
+        // 6702  -- store the value 2 in v7
+        // 6F66  -- store the value 66 in vF
+        // 8565  -- v5 -= v6
+        // 8575  -- v5 -= v7
+        chip8.load_from_memory(&[
+            0x65, 0x0A, 0x66, 0x09, 0x67, 0x02, 0x6F, 0x66, 0x85, 0x65, 0x85, 0x75,
+        ]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.v[0xF], 0x66); // it is about to change, so let's check if our write worked
+
+        chip8.execute_opcode(); // sub 9
+        assert_eq!(chip8.v[0x5], 0x01); // changed
+        assert_eq!(chip8.v[0x6], 0x09); // unchanged
+        assert_eq!(chip8.v[0xF], 0x01); // no borrow
+
+        chip8.execute_opcode(); // sub 2
+        assert_eq!(chip8.v[0x5], 0xFF); // undereflow
+        assert_eq!(chip8.v[0xF], 0x00); // borrow
     }
 }
