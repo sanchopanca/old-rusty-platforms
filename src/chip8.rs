@@ -184,6 +184,7 @@ impl<'a> CHIP8<'a> {
         }
     }
 
+    // store value in a register
     fn execute_6_opcode(&mut self) -> usize {
         let second_nymble = self.ram[self.ca] & 0xF;
         let second_byte = self.ram[self.ca + 1];
@@ -192,11 +193,13 @@ impl<'a> CHIP8<'a> {
     }
 
     fn execute_7_opcode(&mut self) -> usize {
-        let second_nymble = self.ram[self.ca] & 0xF;
+        let register = (self.ram[self.ca] & 0xF) as usize;
         let second_byte = self.ram[self.ca + 1];
-        self.v[second_nymble as usize] = second_byte;
+        let current_value = self.v[register];
+        self.v[register] = current_value.wrapping_add(second_byte);
         self.ca + 2
     }
+
     fn execute_8_opcode(&mut self) -> usize {
         let last_nymble = self.ram[self.ca + 1] & 0xF;
         let x = (self.ram[self.ca] & 0xF) as usize; // second nymble
@@ -442,5 +445,26 @@ mod tests {
         chip8.execute_opcode(); // unsuccessful skip
         assert_eq!(chip8.ca, 0x208);
         assert_eq!(chip8.ram[chip8.ca], 0x05);
+    }
+
+    #[test]
+    fn test_adding_constant() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6001  -- store the value 1 in register 0
+        // 70F0  -- add the value 0xF0 to register 0
+        // 7000  -- add 0 to register 0 (it shouldn't chage)
+        // 7010  -- add 0x10 to register 0, it should wrap around
+        chip8.load_from_memory(&[0x60, 0x01, 0x70, 0xF0, 0x70, 0x00, 0x70, 0x10]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // add
+        assert_eq!(chip8.v[0], 0xF1);
+
+        chip8.execute_opcode(); // add 0
+        assert_eq!(chip8.v[0], 0xF1);
+
+        chip8.execute_opcode(); // add 0x10
+        assert_eq!(chip8.v[0], 0x01);
     }
 }
