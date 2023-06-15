@@ -213,6 +213,8 @@ impl<'a> CHIP8<'a> {
                 let sum: u16 = self.v[x] as u16 + self.v[y] as u16;
                 if sum & 0xFF00 != 0 {
                     self.v[0xF] = 1;
+                } else {
+                    self.v[0xF] = 0;
                 }
                 self.v[x] = (sum & 0x00FF) as u8;
             }
@@ -536,5 +538,36 @@ mod tests {
         chip8.execute_opcode(); // or
         assert_eq!(chip8.v[0x0], 0b1111_0111); // changed
         assert_eq!(chip8.v[0xF], 0b1010_1010); // unchanged
+    }
+
+    #[test]
+    fn test_add() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6CF0  -- store the value F0 in vC
+        // 6D01  -- store the value 1 to vD
+        // 6E10  -- store the value 10 in vD
+        // 6F33  -- store the value 33 in vF
+        // 8CD4  -- vC += vD
+        // 8EC4  -- vE += vC
+        chip8.load_from_memory(&[
+            0x6C, 0xF0, 0x6D, 0x01, 0x6E, 0x10, 0x6F, 0x33, 0x8C, 0xD4, 0x8E, 0xC4,
+        ]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.v[0xF], 0x33); // it is about to change, so let's check if our write worked
+
+        chip8.execute_opcode(); // add 1
+        assert_eq!(chip8.v[0xC], 0xF1); // changed
+        assert_eq!(chip8.v[0xD], 0x01); // unchanged
+        assert_eq!(chip8.v[0xF], 0x00); // carry is 0
+
+        chip8.execute_opcode(); // add 10
+        assert_eq!(chip8.v[0xC], 0xF1); // unchanged
+        assert_eq!(chip8.v[0xE], 0x01); // overflow
+        assert_eq!(chip8.v[0xF], 0x01); // carry is 1
     }
 }
