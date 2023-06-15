@@ -192,6 +192,7 @@ impl<'a> CHIP8<'a> {
         self.ca + 2
     }
 
+    // add a constant to a register
     fn execute_7_opcode(&mut self) -> usize {
         let register = (self.ram[self.ca] & 0xF) as usize;
         let second_byte = self.ram[self.ca + 1];
@@ -200,6 +201,7 @@ impl<'a> CHIP8<'a> {
         self.ca + 2
     }
 
+    // mathematical operations
     fn execute_8_opcode(&mut self) -> usize {
         let last_nymble = self.ram[self.ca + 1] & 0xF;
         let x = (self.ram[self.ca] & 0xF) as usize; // second nymble
@@ -227,8 +229,8 @@ impl<'a> CHIP8<'a> {
                 self.v[x] = self.v[x].wrapping_sub(self.v[y]);
             }
             0x6 => {
-                self.v[0xF] = self.v[x] & 0b0000_0001;
-                self.v[x] >>= 1;
+                self.v[0xF] = self.v[y] & 0b0000_0001;
+                self.v[x] = self.v[y] >> 1;
             }
             0x7 => {
                 if self.v[y] < self.v[x] {
@@ -239,8 +241,8 @@ impl<'a> CHIP8<'a> {
                 self.v[x] = self.v[y].wrapping_sub(self.v[x]);
             }
             0xE => {
-                self.v[0xF] = (self.v[x] & 0b1000_0000) >> 7;
-                self.v[x] <<= 1;
+                self.v[0xF] = (self.v[y] & 0b1000_0000) >> 7;
+                self.v[x] = self.v[y] << 1;
             }
             _ => {
                 self.warning("Illegal opcode");
@@ -249,6 +251,7 @@ impl<'a> CHIP8<'a> {
         self.ca + 2
     }
 
+    // skip if two registers are different
     fn execute_9_opcode(&mut self) -> usize {
         let x = self.ram[self.ca] & 0xF; // second nymble
         let y = self.ram[self.ca + 1] >> 4; // third nymble
@@ -649,5 +652,45 @@ mod tests {
         chip8.execute_opcode(); // sub 2
         assert_eq!(chip8.v[0x7], 0xFD); // changed
         assert_eq!(chip8.v[0xF], 0x01); // no borrow
+    }
+
+    #[test]
+    fn test_shr() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6805  -- store the value 5 in v8
+        // 8186  -- v1 = v8 >> 1
+        // 8116  -- v1 >>= 1
+        chip8.load_from_memory(&[0x68, 0x05, 0x81, 0x86, 0x81, 0x16]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // shr
+        assert_eq!(chip8.v[0x8], 0b0101); // unchanged
+        assert_eq!(chip8.v[0x1], 0b0010); // result
+        assert_eq!(chip8.v[0xF], 0b0001); // shifted bit
+
+        chip8.execute_opcode(); // shr
+        assert_eq!(chip8.v[0x1], 0b0001); // result
+        assert_eq!(chip8.v[0xF], 0b0000); // shifted bit
+    }
+
+    #[test]
+    fn test_shl() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 68A0  -- store the value A0 (0b1010_0000) in v8
+        // 898E  -- v9 = v8 << 1
+        // 899E  -- v9 <<= 1
+        chip8.load_from_memory(&[0x68, 0xA0, 0x89, 0x8E, 0x89, 0x9E]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // shl
+        assert_eq!(chip8.v[0x8], 0b1010_0000); // unchanged
+        assert_eq!(chip8.v[0x9], 0b0100_0000); // result
+        assert_eq!(chip8.v[0xF], 0b0000_0001); // shifted bit
+
+        chip8.execute_opcode(); // shl
+        assert_eq!(chip8.v[0x9], 0b1000_0000); // result
+        assert_eq!(chip8.v[0xF], 0b0000_0000); // shifted bit
     }
 }
