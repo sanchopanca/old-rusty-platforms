@@ -252,7 +252,7 @@ impl<'a> CHIP8<'a> {
     fn execute_9_opcode(&mut self) -> usize {
         let x = self.ram[self.ca] & 0xF; // second nymble
         let y = self.ram[self.ca + 1] >> 4; // third nymble
-        if x != y {
+        if self.v[x as usize] != self.v[y as usize] {
             self.ca + 4
         } else {
             self.ca + 2
@@ -436,7 +436,7 @@ mod tests {
 
         // 5AB0  -- skip the following instruction if the value in registers A and B are equal (they are)
         // 0000  -- nothing here
-        // 6BFF  -- store FF in register A
+        // 6BFF  -- store FF in register B
         // 5AB0  -- skip the following instruction if the value in registers A and B are equal (they are not)
         // 0500  -- we should end up here
         chip8.load_from_memory(&[0x5A, 0xB0, 0x00, 0x00, 0x6B, 0xFF, 0x5A, 0xB0, 0x05, 0x00]);
@@ -447,6 +447,26 @@ mod tests {
         chip8.execute_opcode(); // unsuccessful skip
         assert_eq!(chip8.ca, 0x208);
         assert_eq!(chip8.ram[chip8.ca], 0x05);
+    }
+
+    #[test]
+    fn test_skip9() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 9AB0  -- skip the following instruction if the value in registers A and B are different (they are not)
+        // 6BFF  -- store FF in register B
+        // 9AB0  -- skip the following instruction if the value in registers A and B are different (they are)
+        // 0000  -- nothing here
+        // 0900  -- we should end up here
+        chip8.load_from_memory(&[0x9A, 0xB0, 0x6B, 0xFF, 0x9A, 0xB0, 0x00, 0x00, 0x09, 0x00]);
+        chip8.execute_opcode(); // no skip
+        assert_eq!(chip8.ca, 0x202);
+
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // successful skip
+        assert_eq!(chip8.ca, 0x208);
+        assert_eq!(chip8.ram[chip8.ca], 0x09);
     }
 
     #[test]
