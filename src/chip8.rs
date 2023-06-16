@@ -732,4 +732,32 @@ mod tests {
         chip8.execute_opcode(); // store
         assert_eq!(chip8.i, 0x420);
     }
+
+    #[test]
+    fn test_random() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // CD0F  -- store the random number with mask 0F in vD
+        chip8.load_from_memory(&[0xCD, 0x0F]);
+        chip8.execute_opcode(); // rand
+        assert!(chip8.v[0xD] <= 0xF);
+
+        // we are going to check if the number really changes
+        // C7FF  -- store the random number FF in v7
+        let memory = std::iter::repeat([0xC7u8, 0xFFu8])
+            .take(0xFF)
+            .flatten()
+            .collect::<Vec<_>>();
+        chip8.load_from_memory(&memory);
+        chip8.execute_opcode(); // rand
+        let value = chip8.v[0x7];
+        for _ in 0..=0xFF {
+            chip8.execute_opcode(); // rand
+            if chip8.v[0x7] != value {
+                break;
+            }
+        }
+        assert_ne!(value, chip8.v[0x7]);
+    }
 }
