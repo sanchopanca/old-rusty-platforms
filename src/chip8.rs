@@ -49,6 +49,13 @@ impl<'a> CHIP8<'a> {
         println!("{:?}", &self.ram[0x200..0x210]);
     }
 
+    // extracts address NNN from instructions that look like XNNN
+    fn extract_address(&self) -> usize {
+        let second_nymble = (self.ram[self.ca] & 0xF) as usize;
+        let second_byte = self.ram[self.ca + 1] as usize;
+        second_byte + (second_nymble << 8)
+    }
+
     #[allow(dead_code)]
     fn execute_opcode(&mut self) {
         let first_nymble = self.ram[self.ca] >> 4;
@@ -122,9 +129,7 @@ impl<'a> CHIP8<'a> {
 
     // uncoditional jump
     fn execute_1_opcode(&mut self) -> usize {
-        let second_nymble = (self.ram[self.ca] & 0xF) as usize;
-        let second_byte = self.ram[self.ca + 1] as usize;
-        let address = second_byte + (second_nymble << 8);
+        let address = self.extract_address();
         if address >= MEMORY_SIZE {
             self.warning("Jump ouside of the memory");
             self.ca + 2
@@ -262,16 +267,16 @@ impl<'a> CHIP8<'a> {
         }
     }
 
+    // store address to I register
     fn execute_a_opcode(&mut self) -> usize {
-        let second_nymble = self.ram[self.ca] & 0xF;
-        let address: u16 = (second_nymble as u16) << (8 + (self.ram[self.ca + 1] as u16));
-        self.i = address;
+        let address = self.extract_address();
+        self.i = address as u16;
         self.ca + 2
     }
 
+    // jump to address plus the value of v0
     fn execute_b_opcode(&mut self) -> usize {
-        let second_nymble = self.ram[self.ca] & 0xF;
-        let address: usize = (second_nymble as usize) << (8 + (self.ram[self.ca + 1] as usize));
+        let address = self.extract_address();
         address + self.v[0] as usize // TODO check that the sum less than max address
     }
 
@@ -345,6 +350,16 @@ mod tests {
     use crate::chip8_display::DummyCHIP8Display;
 
     #[test]
+    fn test_extract_address() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 0420  -- just an unused instruction for the test
+        chip8.load_from_memory(&[0x04, 0x20]);
+        assert_eq!(chip8.extract_address(), 0x0420);
+    }
+
+    #[test]
     fn test_jump() {
         let mut display = DummyCHIP8Display::new();
         let mut chip8 = CHIP8::new(&mut display);
@@ -356,6 +371,19 @@ mod tests {
         chip8.execute_opcode();
         println!("{:x}", chip8.ca);
         assert_eq!(chip8.ram[chip8.ca], 0xCC);
+    }
+
+    #[test]
+    fn test_jump_with_offset() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 60AA  -- store AA in v0
+        // B400  -- jump to the address (0x400 + v0)
+        chip8.load_from_memory(&[0x60, 0xAA, 0xB4, 0x00]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // jump
+        assert_eq!(chip8.ca, 0x4AA);
     }
 
     #[test]
@@ -692,5 +720,16 @@ mod tests {
         chip8.execute_opcode(); // shl
         assert_eq!(chip8.v[0x9], 0b1000_0000); // result
         assert_eq!(chip8.v[0xF], 0b0000_0000); // shifted bit
+    }
+
+    #[test]
+    fn test_store_in_i() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // A420  -- store the address 420 in i
+        chip8.load_from_memory(&[0xA4, 0x20]);
+        chip8.execute_opcode(); // store
+        assert_eq!(chip8.i, 0x420);
     }
 }
