@@ -115,6 +115,7 @@ impl<'a> CHIP8<'a> {
                 self.ca + 2
             }
             0xEE => {
+                // return from subroutine
                 self.sp -= 1;
                 // TODO check stack limits
                 // TODO check memory limits
@@ -141,6 +142,7 @@ impl<'a> CHIP8<'a> {
         }
     }
 
+    // call subroutine
     fn execute_2_opcode(&mut self) -> usize {
         let second_nymble = (self.ram[self.ca] & 0xF) as usize;
         let second_byte = self.ram[self.ca + 1] as usize;
@@ -759,5 +761,36 @@ mod tests {
             }
         }
         assert_ne!(value, chip8.v[0x7]);
+    }
+
+    #[test]
+    fn test_call() {
+        let mut display = DummyCHIP8Display::new();
+        let mut chip8 = CHIP8::new(&mut display);
+
+        // 6ABB  -- store the value BB in vA
+        // 2208  -- call subroutine at 208
+        // 7A01  -- add 1 to vA
+        // 120C  -- jump to 20C
+        // 7A02  -- add 2 to vA
+        // 00EE  -- return from subroutine
+        chip8.load_from_memory(&[
+            0x6A, 0xBB, 0x22, 0x08, 0x7A, 0x01, 0x12, 0x0C, 0x7A, 0x02, 0x00, 0xEE,
+        ]);
+        chip8.execute_opcode(); // store
+        chip8.execute_opcode(); // call
+        assert_eq!(chip8.ca, 0x208);
+        assert_eq!(chip8.sp, 0x01);
+        assert_eq!(chip8.stack[0], 0x202);
+
+        chip8.execute_opcode(); // add 1
+        chip8.execute_opcode(); // return
+        assert_eq!(chip8.ca, 0x204);
+
+        chip8.execute_opcode(); // add 2
+        chip8.execute_opcode(); // jump
+
+        assert_eq!(chip8.ca, 0x20C);
+        assert_eq!(chip8.v[0xA], 0xBB + 3);
     }
 }
